@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Department Publication Tracker</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            padding: 20px; 
+            background-color: #f5f5f5; 
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { 
+            color: #2c3e50; 
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 { 
+            color: #34495e; 
+            margin-top: 40px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .author-count { 
+            margin-bottom: 8px; 
+            display: flex; 
+            align-items: center;
+            width: 100%;
+        }
+        .author-name {
+            width: 200px;
+            text-align: right;
+            padding-right: 15px;
+            color: #2c3e50;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .author-name:hover {
+            color: #008080;
+            transform: translateX(5px);
+        }
+        .bar-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            height: 24px;
+        }
+        .bar {
+            height: 100%;
+            background-color: #008080;
+            transition: width 0.5s ease-in-out;
+        }
+        .count {
+            margin-left: 15px;
+            min-width: 30px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .citation { 
+            margin-bottom: 15px; 
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .citation:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        .citation a {
+            color: #008080;
+            text-decoration: none;
+            margin-left: 10px;
+        }
+        .citation a:hover {
+            text-decoration: underline;
+        }
+        #filterInfo {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e8f6f6;
+            border-radius: 4px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .button {
+            padding: 8px 16px;
+            background-color: #008080;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin: 0 5px;
+        }
+        .button:hover {
+            background-color: #006666;
+        }
+        .active-author {
+            color: #008080;
+            font-weight: bold;
+        }
+        .highlight-citation {
+            background-color: #f0f9f9;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        select, input {
+            padding: 8px;
+            margin: 0 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #error {
+            color: red;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #fee;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Department Publication Tracker</h1>
+    
+    <div class="controls">
+        <label for="department">Department:</label>
+        <select id="department">
+            <option value="cardiology">Cardiology</option>
+            <option value="endocrinology">Endocrinology</option>
+            <option value="nephrology">Nephrology</option>
+            <option value="gastroenterology">Gastroenterology</option>
+        </select>
+        
+        <label for="year">Year:</label>
+        <input type="number" id="year" value="2024" min="1900" max="2100">
+        
+        <button class="button" onclick="fetchPublications()">Fetch Publications</button>
+    </div>
+
+    <div id="error"></div>
+    <div id="loading" class="loading" style="display:none">Loading publications...</div>
+    
+    <div id="filterInfo" style="display: none;">
+        <span>Showing publications for: <strong id="currentAuthor"></strong></span>
+        <button onclick="clearFilter()" class="button">Show All Publications</button>
+    </div>
+
+    <div id="results" style="display:none">
+        <h2>Publication Counts</h2>
+        <div id="authorCounts"></div>
+
+        <h2>Summary</h2>
+        <p>Total unique publications: <span id="totalUnique">0</span></p>
+        <p>Sum of total authorships: <span id="totalAuthorships">0</span></p>
+
+        <h2>Citations</h2>
+        <div id="citationsList"></div>
+    </div>
+
+    <script>
+        // Author data by department
+        const departmentAuthors = {
+            cardiology: {
+                "Rodrigo Bagur": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Lynn Bergin": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Sarah Blissett": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Mark Chandy": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Ryan Davey": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Sabe De": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Pantelis Diamantouros": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Bryan Dias": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Daniel Durocher": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Maged Elrayes": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Pallav Garg": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Lorne Gula": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Ashlay Huitema": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Habib Khan": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "George Klein": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Shahar Lavi": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Peter Leong-Sit": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Jaimie Manlucu": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Andrew Mathew": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "David McCarty": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Robert McKelvie": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Terrence McPherson": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Geoffrey Pickering": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Gerard Shoemaker": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Samuel Siu": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Allan Skanes": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Stuart Smith": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Kumar Sridhar": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Neville Suskin": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Anthony Tang": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Patrick Teefy": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Andrew Thain": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Niko Tzemos": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Michael Ward": ["Western University", "University of Western Ontario"],
+    "Raymond Yee": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Luiz Ybarra": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Pavel Antiperovitch": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"]
+            },
+            endocrinology: {
+                "Stan van Uum": ["London", "Western University", "University of Western Ontario"],
+                "Deric Morrison": ["London", "Western University", "University of Western Ontario"],
+                "Amanda Berberich": ["London", "Western University", "University of Western Ontario"],
+                "Kristin Clemens": ["London", "Western University", "University of Western Ontario"],
+    "Robert Hegele": ["London", "Western University", "University of Western Ontario"],
+    "Tisha Joy": ["London", "Western University", "University of Western Ontario"],
+    "Tayyab Khan": ["London", "Western University", "University of Western Ontario"],
+    "Selina Liu": ["London", "Western University", "University of Western Ontario"],
+    "Jeff Mahon": ["London", "Western University", "University of Western Ontario"],
+    "Charlotte McDonald": ["London", "Western University", "University of Western Ontario"],
+    "Ruth McManus": ["London", "Western University", "University of Western Ontario"],
+    "Terri Paul": ["London", "Western University", "University of Western Ontario"],
+    "Tamara Spaic": ["London", "Western University", "University of Western Ontario"]
+            },
+            nephrology: {
+                "Pavel Roshanov": [""],
+    "Christopher McIntyre": ["London AND Ontario", "Western University", "University of Western Ontario"],
+    "Dervla Connaughton": ["London", "Western University", "University of Western Ontario", "Boston"],  
+    "Matthew Weir": ["London AND Canada", "London AND Ontario", "Western University", "University of Western Ontario", "University of Western"],
+    "Lakshman Gunaratnam": ["London", "Western University", "University of Western Ontario"],
+    "Amit X Garg": ["London", "Western University London", "University of Western Ontario", "University of Western"],
+    "Hariharan Iyer": ["London", "Western University", "University of Western Ontario"],
+    "John Johnson": ["London AND Ontario", "Western University", "University of Western Ontario"],
+    "Khaled Lotfy": ["London", "Western University", "University of Western Ontario"],
+    "Michael Chiu": ["London", "Western University", "University of Western Ontario"],
+    "Andrea Cowan": ["London", "Western University", "University of Western Ontario"],
+    "Peter Blake": ["London", "Western University", "University of Western Ontario"],
+    "Louise Moist": ["London", "Western University", "University of Western Ontario"],
+    "Susan Huang": ["London", "Western University", "University of Western Ontario"],
+    "Arsh Jain": ["London", "Western University", "University of Western Ontario"],
+    "Nabil Sultan": ["London", "Western University", "University of Western Ontario"],
+    "Faisal Rehman": ["London", "Western University", "University of Western Ontario"],
+    "Andrew House": ["London", "Western University", "University of Western Ontario"]
+            },
+            gastroenterology: {
+                "Samuel Asfaha": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Melanie Beaton": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Jamie Gregor": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Nadeem Hussain": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Vipul Jairath": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario", "Alimentiv"],
+    "Qasim Khan": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Nitin Khanna": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Reena Khanna": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Paul Marotta": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Keith McIntosh": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Terry Ponich": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Karim Qumosani": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Adam Rahman": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Amindeep Sandhu": ["Western University", "University of Western Ontario"],
+    "Rocio Sedano": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Michael Sey": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Anouar Teriaky": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Aze Wilson": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Brian Yan": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "David Hudson": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"],
+    "Cassandra Townsend": ["London AND (Ontario OR Canada)", "Western University", "University of Western Ontario"]
+            }
+        };
+
+        // Store the current state
+        let currentState = {
+            publications: new Map(),
+            authorCounts: {},
+            citations: [],
+            paperAuthorMap: new Map()
+        };
+
+        async function fetchPublications() {
+            const department = document.getElementById('department').value;
+            const year = document.getElementById('year').value;
+            const authors = departmentAuthors[department];
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            
+            try {
+                // Reset current state
+                currentState = {
+                    publications: new Map(),
+                    authorCounts: {},
+                    citations: [],
+                    paperAuthorMap: new Map()
+                };
+
+                // Fetch publications for each author
+                for (const [author, affiliations] of Object.entries(authors)) {
+                    const count = await searchAuthorPublications(author, affiliations, year);
+                    currentState.authorCounts[author] = count;
+                }
+
+                // Get unique publications
+                const uniqueIds = Array.from(currentState.publications.keys());
+                
+                // Fetch citations
+                currentState.citations = await fetchCitations(uniqueIds);
+                
+                // Update UI
+                updateUI();
+            } catch (error) {
+                document.getElementById('error').textContent = `Error: ${error.message}`;
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+            }
+        }
+
+        async function searchAuthorPublications(author, affiliations, year) {
+    const nameQuery = `(${author}[Author] OR ${author}[Investigator] OR ${author}[Full Author Name])`;
+    const affQuery = affiliations.map(aff => `${aff}[Affiliation]`).join(' OR ');
+    const query = `${nameQuery} AND (${affQuery}) AND ${year}[Date - Publication]`;
+    
+    // Add API key to request
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&term=${encodeURIComponent(query)}&retmode=json&retmax=999999`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    const ids = data.esearchresult.idlist || [];
+    ids.forEach(id => {
+        if (!currentState.publications.has(id)) {
+            currentState.publications.set(id, new Set());
+        }
+        currentState.publications.get(id).add(author);
+    });
+    
+    return ids.length;
+}
+
+async function fetchCitations(pmids) {
+    if (pmids.length === 0) return [];
+    
+    // Add API key to request
+    const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&id=${pmids.join(',')}&retmode=json`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    return Object.values(data.result).filter(item => item.uid).map(item => ({
+        pmid: item.uid,
+        authors: item.authors || [],
+        title: item.title || 'No title',
+        journal: item.source || 'No journal',
+        volume: item.volume || '',
+        issue: item.issue || '',
+        pages: item.pages || '',
+        year: item.pubdate.split(' ')[0] || '',
+        doi: item.elocationid || '',
+        foundBy: Array.from(currentState.publications.get(item.uid) || [])
+    }));
+}
+
+        function updateUI() {
+            // Update author counts
+            const authorCountsDiv = document.getElementById('authorCounts');
+            const sortedAuthors = Object.entries(currentState.authorCounts)
+                .sort(([,a], [,b]) => b - a);
+            
+            const maxCount = Math.max(...Object.values(currentState.authorCounts));
+            
+            authorCountsDiv.innerHTML = sortedAuthors.map(([author, count]) => `
+                <div class="author-count">
+                    <div class="author-name" onclick="filterByAuthor(this, '${author}', ${count})">${author}</div>
+                    <div class="bar-container">
+                        <div class="bar" style="width: ${(count / maxCount) * 100}%;"></div>
+                        <div class="count">${count}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Update summary
+            document.getElementById('totalUnique').textContent = currentState.publications.size;
+            document.getElementById('totalAuthorships').textContent = 
+                Object.values(currentState.authorCounts).reduce((a, b) => a + b, 0);
+
+            // Update citations
+            document.getElementById('citationsList').innerHTML = 
+                currentState.citations.map((citation, index) => `
+                    <div class="citation" data-found-by="${citation.foundBy.join('|')}">
+                        ${index + 1}. ${citation.authors.join(', ')}. ${citation.title}. 
+                        <i>${citation.journal}</i>. ${citation.year};${citation.volume}
+                        ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
+                        ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
+                        <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
+                    </div>
+                `).join('');
+        }
+
+        function filterByAuthor(element, authorName, count) {
+            document.querySelectorAll('.author-name').forEach(name => {
+                name.classList.remove('active-author');
+            });
+            
+            element.classList.add('active-author');
+            
+            const filterInfo = document.getElementById('filterInfo');
+            const currentAuthor = document.getElementById('currentAuthor');
+            filterInfo.style.display = 'flex';
+            
+            const citations = document.querySelectorAll('.citation');
+            let visibleCount = 0;
+            
+            const visibleCitations = [];
+            citations.forEach(citation => {
+                const foundByAuthors = citation.getAttribute('data-found-by').split('|');
+                
+                if (foundByAuthors.includes(authorName)) {
+                    citation.style.display = 'block';
+                    citation.classList.add('highlight-citation');
+                    visibleCitations.push(citation);
+                    visibleCount++;
+                } else {
+                    citation.style.display = 'none';
+                    citation.classList.remove('highlight-citation');
+                }
+            });
+            
+            visibleCitations.forEach((citation, index) => {
+                let citationHTML = citation.innerHTML;
+                citationHTML = citationHTML.replace(/^\d+\./, `${index + 1}.`);
+                citation.innerHTML = citationHTML;
+            });
+            
+            currentAuthor.textContent = `${authorName} (${visibleCount} of ${count} publications)`;
+        }
+
+        function clearFilter() {
+            document.querySelectorAll('.author-name').forEach(name => {
+                name.classList.remove('active-author');
+            });
+            
+            document.getElementById('filterInfo').style.display = 'none';
+            
+            const citations = document.querySelectorAll('.citation');
+            citations.forEach((citation, index) => {
+                let citationHTML = citation.innerHTML;
+                citationHTML = citationHTML.replace(/^\d+\./, `${index + 1}.`);
+                citation.innerHTML = citationHTML;
+                citation.style.display = 'block';
+                citation.classList.remove('highlight-citation');
+            });
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', fetchPublications);
+    </script>
+</body>
+</html>
