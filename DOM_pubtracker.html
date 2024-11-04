@@ -330,11 +330,20 @@
             }
         }
     </style>
+ <!-- Add React dependencies -->
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
 </head>
 <body>
-    <h1>Department of Medicine Publication Tracker</h1>
+    <h1>Department of Medicine PubMed Tracker</h1>
     <div class="disclaimer">
-        <p>Please note: This tracker uses automated PubMed searches to find articles. Due to variations in author names, affiliations, and PubMed indexing delays, some publications may be missed or incorrectly attributed.</p>
+        <p>Please note: Some publications may be missed or incorrectly attributed by the automated search.
+            <ul>
+                <li>Click on an author's name to filter the citations list to show only their publications</li>
+                <li>Click "Show All Publications" to remove the filter</li>
+            </ul>
+        </p>
     </div>
 
     <div class="controls">
@@ -372,8 +381,13 @@
         <button onclick="clearFilter()" class="button">Show All Publications</button>
     </div>
 
+    <div id="divisionAnalytics" style="display: none;">
+        <h2>Publications by Division</h2>
+        <div id="reactCharts"></div>
+    </div>
+
     <div id="results" style="display:none">
-        <h2>Publication Counts</h2>
+        <h2>Publications by Author</h2>
         <div id="authorCounts"></div>
 
         <h2>Summary</h2>
@@ -472,6 +486,59 @@
     initializeYearControl();
     initializeChangeHandlers();
 });
+
+
+function calculateDivisionStats() {
+    const divStats = {};
+    
+    // Process each division
+    Object.entries(departmentAuthors).forEach(([division, authors]) => {
+        const authorCount = Object.keys(authors).length;
+        
+        // Get all unique publications for this division using existing publication data
+        const divisionPubs = Array.from(currentState.publications.entries())
+            .filter(([_, authors]) => 
+                // Check if any of the publication's authors are from this division
+                Object.keys(departmentAuthors[division])
+                    .some(divisionAuthor => authors.has(divisionAuthor))
+            );
+        
+        const uniquePubCount = divisionPubs.length;
+        
+        divStats[division] = {
+            name: division.charAt(0).toUpperCase() + division.slice(1),
+            publications: uniquePubCount,
+            authors: authorCount,
+            perCapita: authorCount ? +(uniquePubCount / authorCount).toFixed(2) : 0
+        };
+    });
+    
+    return Object.values(divStats);
+}
+
+function updateDivisionAnalytics() {
+            const divStats = calculateDivisionStats();
+            const sortedStats = Object.values(divStats);
+            
+            // Get the container
+            const container = document.getElementById('reactCharts');
+            
+            // Clear any existing content
+            container.innerHTML = '';
+            
+            // Create a root div for React
+            const root = document.createElement('div');
+            container.appendChild(root);
+            
+            // Render the React component
+            const ReactComponent = React.createElement(DivisionCharts, {
+                data: sortedStats
+            });
+            ReactDOM.render(ReactComponent, root);
+        }
+
+
+
 </script>
 
     <div id="error"></div>
@@ -1011,7 +1078,16 @@ async function fetchCitations(pmids) {
 }
 
 
-function updateUI(authorDivisions = null) {
+    function updateUI(authorDivisions = null) {
+    // Show/hide and update division analytics
+    const divisionAnalytics = document.getElementById('divisionAnalytics');
+    if (authorDivisions) {
+        divisionAnalytics.style.display = 'block';
+        updateDivisionAnalytics();
+    } else {
+        divisionAnalytics.style.display = 'none';
+    }
+
     // Update author counts
     const authorCountsDiv = document.getElementById('authorCounts');
     const sortedAuthors = Object.entries(currentState.authorCounts)
@@ -1042,7 +1118,7 @@ function updateUI(authorDivisions = null) {
     document.getElementById('totalAuthorships').textContent = 
         Object.values(currentState.authorCounts).reduce((a, b) => a + b, 0);
 
-    // Update citations (keep your existing citations update code)
+    // Update citations
     document.getElementById('citationsList').innerHTML = 
         currentState.citations.map((citation, index) => {
             const authorString = citation.authors.join(', ');
@@ -1056,7 +1132,7 @@ function updateUI(authorDivisions = null) {
                 </div>
             `;
         }).join('');
-}
+    }
 
         function filterByAuthor(element, authorName, count) {
             document.querySelectorAll('.author-name').forEach(name => {
@@ -1116,5 +1192,84 @@ function updateUI(authorDivisions = null) {
         // Initial load
         //document.addEventListener('DOMContentLoaded');
     </script>
+    <!-- Add this right before the closing </body> tag -->
+    <script type="text/babel">
+        const DivisionCharts = ({ data }) => {
+          // Sort data by total publications and per capita
+          const sortedByPubs = [...data].sort((a, b) => b.publications - a.publications);
+          const sortedByPerCapita = [...data].sort((a, b) => b.perCapita - a.perCapita);
+        
+          // Find maximum values for scaling
+          const maxPubs = Math.max(...data.map(d => d.publications));
+          const maxPerCapita = Math.max(...data.map(d => d.perCapita));
+        
+          const chartStyle = {
+            display: 'flex',
+            gap: '50px',
+            padding: '20px'
+          };
+        
+          const chartColumnStyle = {
+            flex: 1
+          };
+        
+          const barContainerStyle = {
+            marginBottom: '4px'
+          };
+        
+          const labelStyle = {
+            fontSize: '14px',
+            marginBottom: '2px'
+          };
+        
+          const barStyle = {
+            height: '24px',
+            backgroundColor: '#0891b2',
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: '8px',
+            color: 'white',
+            fontWeight: 'bold'
+          };
+        
+          const Chart = ({ data, valueKey, title }) => (
+            <div style={chartColumnStyle}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '20px' }}>{title}</h3>
+              {data.map((d, i) => (
+                <div key={i} style={barContainerStyle}>
+                    <div style={labelStyle}>
+                     {d.name} ({d.authors} members)
+                    </div>
+                  <div 
+                    style={{
+                      ...barStyle,
+                      width: `${(d[valueKey] / (valueKey === 'publications' ? maxPubs : maxPerCapita)) * 100}%`
+                    }}
+                  >
+                    {valueKey === 'publications' ? d[valueKey] : d[valueKey].toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        
+          return (
+            <div style={chartStyle}>
+              <Chart 
+                data={sortedByPubs} 
+                valueKey="publications" 
+                title="Total Unique Publications by Division" 
+              />
+              <Chart 
+                data={sortedByPerCapita} 
+                valueKey="perCapita" 
+                title="Publications per Faculty Member" 
+              />
+            </div>
+          );
+        };
+        
+        window.DivisionCharts = DivisionCharts;
+        </script>
 </body>
 </html>
