@@ -3,159 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Department Publication Tracker</title>
+    <title>Department of Medicine Publication Tracker</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            line-height: 1.6; 
-            padding: 20px; 
-            background-color: #f5f5f5; 
-            max-width: 1200px;
+        /* Base styles */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            padding: 30px;
+            background-color: #f8fafc;
+            max-width: 1400px;
             margin: 0 auto;
+            color: #1a2b3c;
         }
-        h1 { 
-            color: #2c3e50; 
+
+        /* Typography */
+        h1 {
+            color: #1a2b3c;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
-        h2 { 
-            color: #34495e; 
-            margin-top: 40px;
+
+        h2 {
+            color: #2d3748;
+            margin-top: 50px;
+            font-size: 1.8em;
+            font-weight: 600;
+            letter-spacing: -0.3px;
         }
+
+        /* Controls section */
         .controls {
-            margin: 20px 0;
-            padding: 15px;
+            margin: 30px 0;
+            padding: 25px;
             background-color: white;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 20px;
         }
-        .author-count { 
-            margin-bottom: 8px; 
-            display: flex; 
-            align-items: center;
+
+        /* Select group styling */
+        .select-group {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 200px;
+        }
+
+        .select-group label {
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2d3748;
+            font-size: 1.1em;
+        }
+
+        /* New select wrapper for iOS fix */
+        .select-wrapper {
+            position: relative;
             width: 100%;
         }
+
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid #0891b2;
+            pointer-events: none;
+        }
+
+        .select-control {
+            width: 100%;
+            padding: 12px 40px 12px 20px;
+            font-size: 1.1em;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: white;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            color: #1a2b3c;
+            display: block;
+            line-height: 1.3;
+        }
+
+        /* iOS specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .select-control {
+                padding-right: 30px;
+                background-color: transparent;
+            }
+            
+            .select-wrapper {
+                background-color: white;
+                border-radius: 8px;
+            }
+        }
+
+        /* Author list styling */
+        .author-count {
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .author-count:hover {
+            background-color: #f8fafc;
+        }
+
         .author-name {
-            width: 200px;
+            width: 250px;
             text-align: right;
-            padding-right: 15px;
-            color: #2c3e50;
+            padding-right: 20px;
+            color: #2d3748;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-size: 1em;
+            line-height: 1.2;
         }
+
         .author-name:hover {
-            color: #008080;
+            color: #0891b2;
             transform: translateX(5px);
         }
+
         .bar-container {
             flex-grow: 1;
             display: flex;
             align-items: center;
-            background-color: #ecf0f1;
-            border-radius: 4px;
+            background-color: #f1f5f9;
+            border-radius: 6px;
             overflow: hidden;
             height: 24px;
         }
+
         .bar {
             height: 100%;
-            background-color: #008080;
+            background-color: #0891b2;
             transition: width 0.5s ease-in-out;
         }
+
         .count {
-            margin-left: 15px;
-            min-width: 30px;
-            font-weight: bold;
-            color: #2c3e50;
+            margin-left: 20px;
+            min-width: 40px;
+            font-weight: 600;
+            color: #1a2b3c;
+            font-size: 1em;
         }
-        .citation { 
-            margin-bottom: 15px; 
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        /* Citation styling */
+        .citation {
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.06);
             transition: all 0.3s ease;
+            line-height: 1.7;
+            font-size: 1.05em;
         }
+
         .citation:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            transform: translateY(-3px);
         }
+
         .citation a {
-            color: #008080;
+            color: #0891b2;
             text-decoration: none;
-            margin-left: 10px;
+            margin-left: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
         }
+
         .citation a:hover {
+            color: #0e7490;
             text-decoration: underline;
         }
+
+        /* Filter info section */
         #filterInfo {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #e8f6f6;
-            border-radius: 4px;
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #ecfeff;
+            border-radius: 12px;
             display: none;
             align-items: center;
             justify-content: space-between;
+            font-size: 1.1em;
         }
-        .button {
-            padding: 8px 16px;
-            background-color: #008080;
+
+        /* Button styling */
+        .fetch-button {
+            padding: 12px 24px;
+            font-size: 1.1em;
+            background-color: #0891b2;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin: 0 5px;
+            transition: all 0.3s ease;
+            height: fit-content;
+            margin-bottom: 2px;
         }
-        .button:hover {
-            background-color: #006666;
+
+        .fetch-button:hover {
+            background-color: #0e7490;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(8, 145, 178, 0.3);
         }
+
+        /* States */
         .active-author {
-            color: #008080;
+            color: #0891b2;
             font-weight: bold;
         }
+
         .highlight-citation {
-            background-color: #f0f9f9;
+            background-color: #f0fdff;
+            border-left: 4px solid #0891b2;
         }
+
+        /* Loading state */
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 30px;
             font-style: italic;
-            color: #666;
+            color: #64748b;
+            font-size: 1.1em;
         }
-        select, input {
-            padding: 8px;
-            margin: 0 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
+
+        /* Error messaging */
         #error {
-            color: red;
-            margin: 10px 0;
-            padding: 10px;
-            background-color: #fee;
-            border-radius: 4px;
+            color: #dc2626;
+            margin: 15px 0;
+            padding: 15px;
+            background-color: #fef2f2;
+            border-radius: 8px;
+            border-left: 4px solid #dc2626;
             display: none;
+            font-weight: 500;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .author-name {
+                width: 180px;
+                font-size: 0.9em;
+            }
+
+            .citation {
+                padding: 15px;
+                font-size: 1em;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            h2 {
+                font-size: 1.5em;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+
+            .select-group {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Department Publication Tracker</h1>
+    <h1>Department of Medicine Publication Tracker</h1>
     
     <div class="controls">
-        <label for="department">Department:</label>
-        <select id="department">
-            <option value="cardiology">Cardiology</option>
-            <option value="endocrinology">Endocrinology</option>
-            <option value="nephrology">Nephrology</option>
-            <option value="gastroenterology">Gastroenterology</option>
-        </select>
+        <div class="select-group">
+            <label for="department">Department</label>
+            <div class="select-wrapper">
+                <select id="department" class="select-control">
+                    <option value="cardiology">Cardiology</option>
+                    <option value="endocrinology">Endocrinology</option>
+                    <option value="nephrology">Nephrology</option>
+                    <option value="gastroenterology">Gastroenterology</option>
+                </select>
+            </div>
+        </div>
         
-        <label for="year">Year:</label>
-        <input type="number" id="year" value="2024" min="1900" max="2100">
+        <div class="select-group">
+            <label for="year">Year</label>
+            <div class="select-wrapper">
+                <select id="year" class="select-control">
+                    <!-- Will be populated by JavaScript -->
+                </select>
+            </div>
+        </div>
         
-        <button class="button" onclick="fetchPublications()">Fetch Publications</button>
+        <button class="fetch-button" onclick="fetchPublications()">
+            Fetch Publications
+        </button>
     </div>
+
+    <div id="error"></div>
+    <div id="loading" class="loading" style="display:none">Loading publications...</div>
+    
+    <div id="filterInfo" style="display: none;">
+        <span>Showing publications for: <strong id="currentAuthor"></strong></span>
+        <button onclick="clearFilter()" class="button">Show All Publications</button>
+    </div>
+
+    <div id="results" style="display:none">
+        <h2>Publication Counts</h2>
+        <div id="authorCounts"></div>
+
+        <h2>Summary</h2>
+        <p>Total unique publications: <span id="totalUnique">0</span></p>
+        <p>Sum of total authorships: <span id="totalAuthorships">0</span></p>
+
+        <h2>Citations</h2>
+        <div id="citationsList"></div>
+    </div>
+
+<script>
+// Add this function to initialize the year selector
+function initializeYearControl() {
+            const currentYear = new Date().getFullYear();
+            const yearSelect = document.getElementById('year');
+            
+            // Clear existing options
+            yearSelect.innerHTML = '';
+            
+            // Add current year
+            const currentYearOption = document.createElement('option');
+            currentYearOption.value = currentYear.toString();
+            currentYearOption.textContent = currentYear.toString();
+            yearSelect.appendChild(currentYearOption);
+            
+            // Add previous year
+            const previousYearOption = document.createElement('option');
+            previousYearOption.value = (currentYear - 1).toString();
+            previousYearOption.textContent = (currentYear - 1).toString();
+            yearSelect.appendChild(previousYearOption);
+        }
+
+        // Add touch event handlers for better mobile interaction
+        document.querySelectorAll('.select-control').forEach(select => {
+            select.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.target.focus();
+            });
+        });
+
+        // Make sure to call this when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeYearControl();
+            fetchPublications();
+        });
+</script>
 
     <div id="error"></div>
     <div id="loading" class="loading" style="display:none">Loading publications...</div>
@@ -353,24 +580,27 @@
 async function fetchCitations(pmids) {
     if (pmids.length === 0) return [];
     
-    // Add API key to request
     const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&id=${pmids.join(',')}&retmode=json`;
     const response = await fetch(url);
     const data = await response.json();
     
-    return Object.values(data.result).filter(item => item.uid).map(item => ({
-        pmid: item.uid,
-        authors: item.authors || [],
-        title: item.title || 'No title',
-        journal: item.source || 'No journal',
-        volume: item.volume || '',
-        issue: item.issue || '',
-        pages: item.pages || '',
-        year: item.pubdate.split(' ')[0] || '',
-        doi: item.elocationid || '',
-        foundBy: Array.from(currentState.publications.get(item.uid) || [])
-    }));
+    return Object.values(data.result)
+        .filter(item => item.uid)
+        .map(item => ({
+            pmid: item.uid,
+            // Fix author processing - extract names from author objects
+            authors: (item.authors || []).map(author => author.name || '').filter(name => name),
+            title: item.title || 'No title',
+            journal: item.source || 'No journal',
+            volume: item.volume || '',
+            issue: item.issue || '',
+            pages: item.pages || '',
+            year: item.pubdate.split(' ')[0] || '',
+            doi: item.elocationid || '',
+            foundBy: Array.from(currentState.publications.get(item.uid) || [])
+        }));
 }
+
 
         function updateUI() {
             // Update author counts
@@ -397,15 +627,18 @@ async function fetchCitations(pmids) {
 
             // Update citations
             document.getElementById('citationsList').innerHTML = 
-                currentState.citations.map((citation, index) => `
-                    <div class="citation" data-found-by="${citation.foundBy.join('|')}">
-                        ${index + 1}. ${citation.authors.join(', ')}. ${citation.title}. 
-                        <i>${citation.journal}</i>. ${citation.year};${citation.volume}
-                        ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
-                        ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
-                        <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
-                    </div>
-                `).join('');
+        currentState.citations.map((citation, index) => {
+            const authorString = citation.authors.join(', ');
+            return `
+                <div class="citation" data-found-by="${citation.foundBy.join('|')}">
+                    ${index + 1}. ${authorString}. ${citation.title}. 
+                    <i>${citation.journal}</i>. ${citation.year};${citation.volume}
+                    ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
+                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
+                </div>
+            `;
+        }).join('');
         }
 
         function filterByAuthor(element, authorName, count) {
