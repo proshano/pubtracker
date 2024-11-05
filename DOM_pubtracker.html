@@ -146,31 +146,32 @@
 }
 
         /* Author count styling */
-.author-count {
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background-color 0.2s ease;
-}
+        .author-count {
+            margin-bottom: 1px;  
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 1px 8px;    
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
 
 .author-count:hover {
     background-color: #f8fafc;
 }
 
 .author-name {
-    width: 250px;
-    text-align: right;
-    padding-right: 20px;
-    color: #2d3748;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 1em;
-    line-height: 1.2;
-}
+            width: 350px;
+            text-align: right;
+            padding-right: 20px;
+            color: #2d3748;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+            line-height: 1.2;
+            white-space: nowrap;  
+        }
 
 .author-name:hover {
     color: #0891b2;
@@ -178,12 +179,12 @@
 }
 
 .bar-container {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    height: 24px;
-}
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            height: 24px;
+        }
 
 .bar {
     height: 100%;
@@ -422,7 +423,7 @@
     </div>
 
     <div id="results" style="display:none">
-        <h2>Publications by Author</h2>
+        <h2>Authorships</h2>
         <div id="authorCounts"></div>
 
         <h2>Summary</h2>
@@ -1157,7 +1158,7 @@ function updateUI(authorDivisions = null) {
                     ${index + 1}. ${authorString}. ${citation.title}. 
                     <i>${citation.journal}</i>. ${citation.year};${citation.volume}
                     ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
-                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
+                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">${citation.doi}</a>` : ''}
                     <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
                 </div>
             `;
@@ -1310,7 +1311,7 @@ function updateUI(authorDivisions = null) {
                     ${index + 1}. ${authorString}. ${citation.title}. 
                     <i>${citation.journal}</i>. ${citation.year};${citation.volume}
                     ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
-                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
+                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">${citation.doi}</a>` : ''}
                     <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
                 </div>
             `;
@@ -1477,7 +1478,7 @@ function filterByAuthor(element, authorName, count) {
               <Chart 
                 data={sortedByPerCapita} 
                 valueKey="perCapita" 
-                title="Publications per Faculty Member" 
+                title="Unique Publications per Faculty Member" 
               />
             </div>
           );
