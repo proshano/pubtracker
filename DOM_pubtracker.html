@@ -145,61 +145,59 @@
     }
 }
 
-        /* Author list styling */
-        .author-count {
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            width: 100%;
-            padding: 4px 8px;
-            border-radius: 6px;
-            transition: background-color 0.2s ease;
-        }
+        /* Author count styling */
+.author-count {
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
 
-        .author-count:hover {
-            background-color: #f8fafc;
-        }
+.author-count:hover {
+    background-color: #f8fafc;
+}
 
-        .author-name {
-            width: 250px;
-            text-align: right;
-            padding-right: 20px;
-            color: #2d3748;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1em;
-            line-height: 1.2;
-        }
+.author-name {
+    width: 250px;
+    text-align: right;
+    padding-right: 20px;
+    color: #2d3748;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1em;
+    line-height: 1.2;
+}
 
-        .author-name:hover {
-            color: #0891b2;
-            transform: translateX(5px);
-        }
+.author-name:hover {
+    color: #0891b2;
+    transform: translateX(5px);
+}
 
-        .bar-container {
-            flex-grow: 1;
-            display: flex;
-            align-items: center;
-            background-color: #f1f5f9;
-            border-radius: 6px;
-            overflow: hidden;
-            height: 24px;
-        }
+.bar-container {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    height: 24px;
+}
 
-        .bar {
-            height: 100%;
-            background-color: #0891b2;
-            transition: width 0.5s ease-in-out;
-        }
+.bar {
+    height: 100%;
+    background-color: #0891b2;
+    transition: width 0.5s ease-in-out;
+    min-width: 10px;
+}
 
-        .count {
-            margin-left: 20px;
-            min-width: 40px;
-            font-weight: 600;
-            color: #1a2b3c;
-            font-size: 1em;
-        }
+.author-metrics {
+    font-weight: bold;
+    color: #1a2b3c;
+    margin-left: 8px;
+    white-space: nowrap;
+}
 
         /* Citation styling */
         .citation {
@@ -297,11 +295,14 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            body {
-                padding: 15px;
-            }
-
+    
             .author-name {
+        width: 150px;
+        font-size: 0.9em;
+    }
+
+
+           .author-name {
                 width: 180px;
                 font-size: 0.9em;
             }
@@ -328,7 +329,32 @@
             .select-group {
                 width: 100%;
             }
+        
+            .author-metrics {
+        font-size: 0.9em;
+    }
+
+        .bar-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            background-color: #f1f5f9;
+            border-radius: 6px;
+            overflow: hidden;
+            height: 28px;  /* Slightly increased height */
         }
+
+        .bar {
+            height: 100%;
+            background-color: #0891b2;
+            transition: width 0.5s ease-in-out;
+            display: flex;
+            align-items: center;
+            color: white;
+            padding: 0 10px;
+            min-width: 200px;  /* Ensure minimum width for metrics */
+        }
+    }
     </style>
  <!-- Add React dependencies -->
  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
@@ -348,13 +374,21 @@
 
     <div class="controls">
         <div class="select-group">
+            <label for="authorshipType">Authorship Type</label>
+            <div class="select-wrapper">
+                <select id="authorshipType" class="select-control">
+                    <option value="all">All Authorships</option>
+                    <option value="firstlast">First/Last Authorships Only</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="select-group">
             <label for="department">Division</label>
             <div class="select-wrapper">
                 <select id="department" class="select-control">
-                    <option value="nephrology">Nephrology</option>
-                    <option value="cardiology">Cardiology</option>
-                    <option value="gastroenterology">Gastroenterology</option>
-                    <option value="endocrinology">Endocrinology</option>
+                    <option value="all">All Divisions</option>
+                    <!-- Other options will be populated by JavaScript -->
                 </select>
             </div>
         </div>
@@ -363,7 +397,8 @@
             <label for="year">Year</label>
             <div class="select-wrapper">
                 <select id="year" class="select-control">
-                    <!-- Will be populated by JavaScript -->
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
                 </select>
             </div>
         </div>
@@ -403,7 +438,7 @@
 
     <script>
         // Year control initialization
-        function initializeYearControl() {
+     /*   function initializeYearControl() {
             var currentYear = new Date().getFullYear();
             var yearSelect = document.getElementById('year');
             
@@ -425,6 +460,7 @@
             // Force a selection
             yearSelect.value = currentYear.toString();
         }
+    */
 
         // Add touch event handlers for better mobile interaction
         function initializeMobileHandlers() {
@@ -440,15 +476,49 @@
 
         // Add change event listeners to both selects
         function initializeChangeHandlers() {
-            document.getElementById('year').addEventListener('change', handleSelectChange);
-            document.getElementById('department').addEventListener('change', handleSelectChange);
+            document.getElementById('authorshipType').addEventListener('change', function(e) {
+                e.target.blur(); // Close the select dropdown
+                if (currentState.citations.length > 0) {
+                    // Get the current department value to check if we need division analytics
+                    const department = document.getElementById('department').value;
+                    const authorDivisions = department === "all" ? buildAuthorDivisionMap() : null;
+                    updateUI(authorDivisions); // Pass authorDivisions to maintain division graphs
+                }
+            });
+
+            // Keep these handlers simple - just blur the select
+            document.getElementById('department').addEventListener('change', function(e) {
+                e.target.blur();
+            });
+
+            document.getElementById('year').addEventListener('change', function(e) {
+                e.target.blur();
+            });
         }
 
-        function handleSelectChange(e) {
-            var select = e.target;
-            select.blur(); // Close the select dropdown
-          //  fetchPublications(); // Fetch new publications
+        function buildAuthorDivisionMap() {
+            const authorDivisions = {};
+            for (const [dept, deptAuthors] of Object.entries(departmentAuthors)) {
+                for (const author in deptAuthors) {
+                    authorDivisions[author] = dept;
+                }
+            }
+            return authorDivisions;
         }
+
+
+function handleSelectChange(e) {
+    var select = e.target;
+    select.blur(); // Close the select dropdown
+
+    if (select.id === 'authorshipType') {
+        // Update the UI based on the new authorshipType
+        updateUI();
+    } else {
+        // For department or year change, fetch publications again
+        fetchPublications();
+    }
+}
 
         // Initialize everything when the page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -483,12 +553,12 @@
         departmentSelect.appendChild(optionElement);
     });
     
-    initializeYearControl();
+   // initializeYearControl();
     initializeChangeHandlers();
 });
 
 
-function calculateDivisionStats() {
+function calculateDivisionStats(authorshipType) {
     const divStats = {};
     
     // Process each division
@@ -496,14 +566,17 @@ function calculateDivisionStats() {
         const authorCount = Object.keys(authors).length;
         
         // Get all unique publications for this division using existing publication data
-        const divisionPubs = Array.from(currentState.publications.entries())
-            .filter(([_, authors]) => 
-                // Check if any of the publication's authors are from this division
-                Object.keys(departmentAuthors[division])
-                    .some(divisionAuthor => authors.has(divisionAuthor))
-            );
+        const divisionPubs = currentState.citations.filter(citation => {
+            let found = false;
+            if (authorshipType === 'all') {
+                found = citation.foundBy.some(author => Object.keys(departmentAuthors[division]).includes(author));
+            } else if (authorshipType === 'firstlast') {
+                found = citation.foundByFirstLast.some(author => Object.keys(departmentAuthors[division]).includes(author));
+            }
+            return found;
+        }).map(citation => citation.pmid);
         
-        const uniquePubCount = divisionPubs.length;
+        const uniquePubCount = new Set(divisionPubs).size;
         
         divStats[division] = {
             name: division.charAt(0).toUpperCase() + division.slice(1),
@@ -516,9 +589,9 @@ function calculateDivisionStats() {
     return Object.values(divStats);
 }
 
-function updateDivisionAnalytics() {
-            const divStats = calculateDivisionStats();
-            const sortedStats = Object.values(divStats);
+function updateDivisionAnalytics(authorshipType) {
+    const divStats = calculateDivisionStats(authorshipType);
+    const sortedStats = Object.values(divStats);
             
             // Get the container
             const container = document.getElementById('reactCharts');
@@ -924,17 +997,21 @@ function updateLoadingStatus(current, total) {
 }
 
         // Store the current state
-        let currentState = {
-            publications: new Map(),
-            authorCounts: {},
-            citations: [],
-            paperAuthorMap: new Map()
-        };
+   // Store the current state
+let currentState = {
+    publications: new Map(),
+    authorCounts: {},
+    firstAuthorCounts: {},    
+    lastAuthorCounts: {},     
+    firstOrLastCounts: {},    
+    citations: [],
+    paperAuthorMap: new Map()
+};
 
-        async function fetchPublications() {
+async function fetchPublications() {
     const department = document.getElementById('department').value;
     const year = document.getElementById('year').value;
-    
+
     // Get appropriate authors
     let authors;
     if (department === "all") {
@@ -945,17 +1022,21 @@ function updateLoadingStatus(current, total) {
     } else {
         authors = departmentAuthors[department];
     }
-    
+
     clearFilter();
-    
+
     document.getElementById('loading').style.display = 'block';
     document.getElementById('results').style.display = 'none';
     document.getElementById('error').style.display = 'none';
-    
+
     try {
+        // Reset the state
         currentState = {
             publications: new Map(),
             authorCounts: {},
+            firstAuthorCounts: {},    
+            lastAuthorCounts: {},     
+            firstOrLastCounts: {},    
             citations: [],
             paperAuthorMap: new Map()
         };
@@ -964,58 +1045,41 @@ function updateLoadingStatus(current, total) {
         const totalAuthors = authorEntries.length;
         let processedAuthors = 0;
 
-        // Process authors in batches of 10
-        const BATCH_SIZE = 10;
-        const batches = chunk(authorEntries, BATCH_SIZE);
+        const CONCURRENCY_LIMIT = 5; // Adjust based on allowed rate limits
 
-        for (const batch of batches) {
-            // Process each batch concurrently
-            await Promise.all(batch.map(async ([author, affiliations]) => {
-                try {
-                    const count = await searchAuthorPublications(author, affiliations, year);
-                    currentState.authorCounts[author] = count;
-                    processedAuthors++;
-                    updateLoadingStatus(processedAuthors, totalAuthors);
-                } catch (error) {
-                    console.error(`Error processing ${author}:`, error);
-                    currentState.authorCounts[author] = 0;
-                }
-            }));
+        await asyncPool(CONCURRENCY_LIMIT, authorEntries, async ([author, affiliations]) => {
+            try {
+                const count = await searchAuthorPublications(author, affiliations, year);
+                currentState.authorCounts[author] = count;
+                processedAuthors++;
+                updateLoadingStatus(processedAuthors, totalAuthors);
+                await delay(500); // Small delay to stay within rate limits
+            } catch (error) {
+                console.error(`Error processing ${author}:`, error);
+                currentState.authorCounts[author] = 0;
+            }
+        });
 
-            // Add a small delay between batches to avoid overwhelming the API
-            await delay(1000);
-        }
-
-        // Get unique publications
+        // Proceed to fetch citations as before
         const uniqueIds = Array.from(currentState.publications.keys());
-        
-        // Process citations in batches
         if (uniqueIds.length > 0) {
-            document.getElementById('loading').innerHTML = 'Fetching citation details...';
+            document.getElementById('loading').innerHTML = 'Processing citation details...';
             const CITATION_BATCH_SIZE = 50;
             const citationBatches = chunk(uniqueIds, CITATION_BATCH_SIZE);
             const allCitations = [];
-            
+
             for (const batch of citationBatches) {
                 const citations = await fetchCitations(batch);
                 allCitations.push(...citations);
-                await delay(500);
+                await delay(500); // Adjust delay as necessary
             }
-            
+
             currentState.citations = allCitations;
         }
-        
-        // Update UI
-        const authorDivisions = {};
-        if (department === "all") {
-            for (const [dept, deptAuthors] of Object.entries(departmentAuthors)) {
-                for (const author in deptAuthors) {
-                    authorDivisions[author] = dept;
-                }
-            }
-        }
-        updateUI(department === "all" ? authorDivisions : null);
-        
+
+        const authorDivisions = department === "all" ? buildAuthorDivisionMap() : null;
+        updateUI(authorDivisions);
+
     } catch (error) {
         document.getElementById('error').textContent = `Error: ${error.message}`;
         document.getElementById('error').style.display = 'block';
@@ -1026,12 +1090,86 @@ function updateLoadingStatus(current, total) {
 }
 
 
-        async function searchAuthorPublications(author, affiliations, year) {
+
+function updateUI(authorDivisions = null) {
+    // Get selected authorshipType
+    const authorshipType = document.getElementById('authorshipType').value;
+    const currentDepartment = document.getElementById('department').value;
+
+    // Show/hide division analytics
+    const divisionAnalytics = document.getElementById('divisionAnalytics');
+    if (currentDepartment === "all") {
+        divisionAnalytics.style.display = 'block';
+        updateDivisionAnalytics(authorshipType);
+    } else {
+        divisionAnalytics.style.display = 'none';
+    }
+
+    // Use counts according to authorshipType
+    const countsToUse = authorshipType === 'all' ? currentState.authorCounts : currentState.firstOrLastCounts;
+
+    // Update author counts
+    const authorCountsDiv = document.getElementById('authorCounts');
+    const sortedAuthors = Object.entries(countsToUse)
+        .sort(([,a], [,b]) => b - a);
+
+    const maxCount = Math.max(...Object.values(countsToUse));
+
+    authorCountsDiv.innerHTML = sortedAuthors.map(([author, count]) => {
+        const divisionLabel = authorDivisions ? 
+            `<span style="font-size: 0.8em; color: #666; font-weight: normal"> (${authorDivisions[author].charAt(0).toUpperCase() + authorDivisions[author].slice(1)})</span>` : 
+            '';
+
+        return `
+            <div class="author-count">
+                <div class="author-name" onclick="filterByAuthor(this, '${author}', ${count})">
+                    ${author}${divisionLabel}
+                </div>
+                <div class="bar-container">
+                    <div class="bar" style="width: ${(count / maxCount) * 100}%;">
+                    </div>
+                    <div class="author-metrics">
+                        ${count}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Update summary section
+    const totalAuthorships = Object.values(countsToUse).reduce((a, b) => a + b, 0);
+    document.getElementById('totalUnique').textContent = currentState.publications.size;
+    document.getElementById('totalAuthorships').textContent = totalAuthorships;
+
+    // Update citations list based on authorshipType
+    let citationsToDisplay = currentState.citations;
+    if (authorshipType === 'firstlast') {
+        citationsToDisplay = currentState.citations.filter(citation => {
+            return citation.foundByFirstLast.length > 0;
+        });
+    }
+
+    document.getElementById('citationsList').innerHTML = 
+        citationsToDisplay.map((citation, index) => {
+            const authorString = citation.authors.join(', ');
+            return `
+                <div class="citation" data-found-by="${citation.foundBy.join('|')}" data-found-by-firstlast="${citation.foundByFirstLast.join('|')}">
+                    ${index + 1}. ${authorString}. ${citation.title}. 
+                    <i>${citation.journal}</i>. ${citation.year};${citation.volume}
+                    ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
+                    ${citation.doi ? `<a href="https://doi.org/${citation.doi}" target="_blank">doi:${citation.doi}</a>` : ''}
+                    <a href="https://pubmed.ncbi.nlm.nih.gov/${citation.pmid}/" target="_blank">PubMed</a>
+                </div>
+            `;
+        }).join('');
+}
+    
+
+async function searchAuthorPublications(author, affiliations, year) {
     const nameQuery = `(${author}[Author] OR ${author}[Investigator] OR ${author}[Full Author Name])`;
     const affQuery = affiliations.map(aff => `${aff}[Affiliation]`).join(' OR ');
     const query = `${nameQuery} AND (${affQuery}) AND ${year}[Date - Publication]`;
     
-    // Add API key to request
     const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&term=${encodeURIComponent(query)}&retmode=json&retmax=999999`;
     
     const response = await fetch(url);
@@ -1048,6 +1186,18 @@ function updateLoadingStatus(current, total) {
     return ids.length;
 }
 
+function isFirstOrLastAuthor(authorsList, authorFullName) {
+    // Extract last name from authorFullName
+    const authorLastName = authorFullName.trim().split(' ').slice(-1)[0].toLowerCase();
+
+    // Extract last names of first and last authors in the authorsList
+    const firstAuthorLastName = authorsList[0].trim().split(' ')[0].toLowerCase();
+    const lastAuthorLastName = authorsList[authorsList.length -1].trim().split(' ')[0].toLowerCase();
+
+    // Compare last names
+    return (firstAuthorLastName === authorLastName || lastAuthorLastName === authorLastName);
+}
+
 async function fetchCitations(pmids) {
     if (pmids.length === 0) return [];
     
@@ -1059,71 +1209,104 @@ async function fetchCitations(pmids) {
         
         return Object.values(data.result || {})
             .filter(item => item && item.uid)
-            .map(item => ({
-                pmid: item.uid,
-                authors: (item.authors || []).map(author => author.name || '').filter(name => name),
-                title: item.title || 'No title',
-                journal: item.source || 'No journal',
-                volume: item.volume || '',
-                issue: item.issue || '',
-                pages: item.pages || '',
-                year: item.pubdate.split(' ')[0] || '',
-                doi: item.elocationid || '',
-                foundBy: Array.from(currentState.publications.get(item.uid) || [])
-            }));
+            .map(item => {
+                const authors = (item.authors || []).map(author => author.name || '').filter(name => name);
+                const foundBySet = currentState.publications.get(item.uid) || new Set();
+                const foundBy = Array.from(foundBySet);
+
+                // Track first/last authorships
+                const foundByFirstLast = [];
+                foundBy.forEach(author => {
+                    if (isFirstOrLastAuthor(authors, author)) {
+                        foundByFirstLast.push(author);
+                        // Initialize count if needed
+                        currentState.firstOrLastCounts[author] = (currentState.firstOrLastCounts[author] || 0) + 1;
+                    }
+                });
+
+                return {
+                    pmid: item.uid,
+                    authors: authors,
+                    title: item.title || 'No title',
+                    journal: item.source || 'No journal',
+                    volume: item.volume || '',
+                    issue: item.issue || '',
+                    pages: item.pages || '',
+                    year: item.pubdate.split(' ')[0] || '',
+                    doi: item.elocationid || '',
+                    foundBy: foundBy,
+                    foundByFirstLast: foundByFirstLast // Add this line
+                };
+            });
     } catch (error) {
         console.error('Error fetching citations:', error);
         return [];
     }
 }
 
+function updateUI(authorDivisions = null) {
+    // Get selected authorshipType
+    const authorshipType = document.getElementById('authorshipType').value;
 
-    function updateUI(authorDivisions = null) {
-    // Show/hide and update division analytics
+    // Show/hide division analytics
     const divisionAnalytics = document.getElementById('divisionAnalytics');
     if (authorDivisions) {
         divisionAnalytics.style.display = 'block';
-        updateDivisionAnalytics();
+        updateDivisionAnalytics(authorshipType); // Pass authorshipType here
     } else {
         divisionAnalytics.style.display = 'none';
     }
 
+    // Use counts according to authorshipType
+    const countsToUse = authorshipType === 'all' ? currentState.authorCounts : currentState.firstOrLastCounts;
+
     // Update author counts
     const authorCountsDiv = document.getElementById('authorCounts');
-    const sortedAuthors = Object.entries(currentState.authorCounts)
+    const sortedAuthors = Object.entries(countsToUse)
         .sort(([,a], [,b]) => b - a);
-    
-    const maxCount = Math.max(...Object.values(currentState.authorCounts));
-    
+
+    const maxCount = Math.max(...Object.values(countsToUse));
+
     authorCountsDiv.innerHTML = sortedAuthors.map(([author, count]) => {
         const divisionLabel = authorDivisions ? 
             `<span style="font-size: 0.8em; color: #666; font-weight: normal"> (${authorDivisions[author].charAt(0).toUpperCase() + authorDivisions[author].slice(1)})</span>` : 
             '';
-        
+
         return `
             <div class="author-count">
                 <div class="author-name" onclick="filterByAuthor(this, '${author}', ${count})">
                     ${author}${divisionLabel}
                 </div>
                 <div class="bar-container">
-                    <div class="bar" style="width: ${(count / maxCount) * 100}%;"></div>
-                    <div class="count">${count}</div>
+                    <div class="bar" style="width: ${(count / maxCount) * 100}%;">
+                    </div>
+                    <div class="author-metrics">
+                        ${count}
+                    </div>
                 </div>
             </div>
         `;
     }).join('');
 
-    // Update summary
-    document.getElementById('totalUnique').textContent = currentState.publications.size;
-    document.getElementById('totalAuthorships').textContent = 
-        Object.values(currentState.authorCounts).reduce((a, b) => a + b, 0);
+    // Update summary section
+    const totalAuthorships = Object.values(countsToUse).reduce((a, b) => a + b, 0);
 
-    // Update citations
+    document.getElementById('totalUnique').textContent = currentState.publications.size;
+    document.getElementById('totalAuthorships').innerHTML = `${totalAuthorships}`;
+
+    // Update citations list
+    let citationsToDisplay = currentState.citations;
+    if (authorshipType === 'firstlast') {
+        citationsToDisplay = currentState.citations.filter(citation => {
+            return citation.foundByFirstLast.length > 0;
+        });
+    }
+
     document.getElementById('citationsList').innerHTML = 
-        currentState.citations.map((citation, index) => {
+        citationsToDisplay.map((citation, index) => {
             const authorString = citation.authors.join(', ');
             return `
-                <div class="citation" data-found-by="${citation.foundBy.join('|')}">
+                <div class="citation" data-found-by="${citation.foundBy.join('|')}" data-found-by-firstlast="${citation.foundByFirstLast.join('|')}">
                     ${index + 1}. ${authorString}. ${citation.title}. 
                     <i>${citation.journal}</i>. ${citation.year};${citation.volume}
                     ${citation.issue ? `(${citation.issue})` : ''}:${citation.pages}.
@@ -1132,45 +1315,59 @@ async function fetchCitations(pmids) {
                 </div>
             `;
         }).join('');
-    }
+}
 
-        function filterByAuthor(element, authorName, count) {
-            document.querySelectorAll('.author-name').forEach(name => {
-                name.classList.remove('active-author');
-            });
-            
-            element.classList.add('active-author');
-            
-            const filterInfo = document.getElementById('filterInfo');
-            const currentAuthor = document.getElementById('currentAuthor');
-            filterInfo.style.display = 'flex';
-            
-            const citations = document.querySelectorAll('.citation');
-            let visibleCount = 0;
-            
-            const visibleCitations = [];
-            citations.forEach(citation => {
-                const foundByAuthors = citation.getAttribute('data-found-by').split('|');
-                
-                if (foundByAuthors.includes(authorName)) {
-                    citation.style.display = 'block';
-                    citation.classList.add('highlight-citation');
-                    visibleCitations.push(citation);
-                    visibleCount++;
-                } else {
-                    citation.style.display = 'none';
-                    citation.classList.remove('highlight-citation');
+function filterByAuthor(element, authorName, count) {
+    const authorshipType = document.getElementById('authorshipType').value;
+
+    document.querySelectorAll('.author-name').forEach(name => {
+        name.classList.remove('active-author');
+    });
+    
+    element.classList.add('active-author');
+    
+    const filterInfo = document.getElementById('filterInfo');
+    const currentAuthor = document.getElementById('currentAuthor');
+    filterInfo.style.display = 'flex';
+    
+    const citations = document.querySelectorAll('.citation');
+    let visibleCount = 0;
+    
+    const visibleCitations = [];
+    citations.forEach(citation => {
+        const foundByAuthors = citation.getAttribute('data-found-by').split('|');
+        const foundByFirstLastAuthors = citation.getAttribute('data-found-by-firstlast').split('|');
+        
+        let includeCitation = false;
+        if (foundByAuthors.includes(authorName)) {
+            if (authorshipType === 'all') {
+                includeCitation = true;
+            } else if (authorshipType === 'firstlast') {
+                if (foundByFirstLastAuthors.includes(authorName)) {
+                    includeCitation = true;
                 }
-            });
-            
-            visibleCitations.forEach((citation, index) => {
-                let citationHTML = citation.innerHTML;
-                citationHTML = citationHTML.replace(/^\d+\./, `${index + 1}.`);
-                citation.innerHTML = citationHTML;
-            });
-            
-            currentAuthor.textContent = `${authorName} (${visibleCount} of ${count} publications)`;
+            }
         }
+
+        if (includeCitation) {
+            citation.style.display = 'block';
+            citation.classList.add('highlight-citation');
+            visibleCitations.push(citation);
+            visibleCount++;
+        } else {
+            citation.style.display = 'none';
+            citation.classList.remove('highlight-citation');
+        }
+    });
+    
+    visibleCitations.forEach((citation, index) => {
+        let citationHTML = citation.innerHTML;
+        citationHTML = citationHTML.replace(/^\d+\./, `${index + 1}.`);
+        citation.innerHTML = citationHTML;
+    });
+    
+    currentAuthor.textContent = `${authorName} (${visibleCount} of ${count} publications)`;
+}
 
         function clearFilter() {
             document.querySelectorAll('.author-name').forEach(name => {
@@ -1191,6 +1388,23 @@ async function fetchCitations(pmids) {
 
         // Initial load
         //document.addEventListener('DOMContentLoaded');
+        async function asyncPool(limit, array, iteratorFn) {
+    const ret = []; // Array of promises
+    const executing = []; // Array of currently executing promises
+    for (const item of array) {
+        const p = Promise.resolve().then(() => iteratorFn(item));
+        ret.push(p);
+
+        if (limit <= array.length) {
+            const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+            executing.push(e);
+            if (executing.length >= limit) {
+                await Promise.race(executing);
+            }
+        }
+    }
+    return Promise.all(ret);
+}
     </script>
     <!-- Add this right before the closing </body> tag -->
     <script type="text/babel">
