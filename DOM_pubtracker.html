@@ -547,9 +547,11 @@ input[type="date"].select-control:focus {
             // Initialize date pickers with default values
 const today = new Date();
 const firstDay = new Date(today.getFullYear(), 0, 1); // January 1st of current year
+const futureDate = new Date(today);
+futureDate.setMonth(today.getMonth() + 1); // Add 1 months to current date
     
 document.getElementById('fromDate').valueAsDate = firstDay;
-document.getElementById('toDate').valueAsDate = today;
+document.getElementById('toDate').valueAsDate = futureDate;
         });
 
         function calculateDivisionStats(authorshipType) {
