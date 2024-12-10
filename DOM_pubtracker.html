@@ -1,12 +1,15 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Department of Medicine Publication Tracker</title>
     <style>
-
-        /* Disclaimer styles */
+        /* Pavel Roshanov's publication tracker */
+        /* last updated Dec 9 2024 */
+ 
         .disclaimer {
             margin: 20px auto 30px;
             padding: 15px 20px;
@@ -25,7 +28,7 @@
         }
 
 
-        /* Base styles */
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.8;
@@ -36,7 +39,7 @@
             color: #1a2b3c;
         }
 
-        /* Typography */
+  
         h1 {
             color: #1a2b3c;
             text-align: center;
@@ -54,19 +57,19 @@
             letter-spacing: -0.3px;
         }
 
-        /* Controls section */
+
         .controls {
     margin: 30px 0;
     padding: 20px;
-    background-color: #f9fafb; /* Light neutral background */
-    border: 1px solid #e5e7eb; /* Subtle border for structure */
-    border-radius: 8px; /* Slightly rounded corners */
+    background-color: #f9fafb; 
+    border: 1px solid #e5e7eb; 
+    border-radius: 8px;
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
     align-items: center;
     justify-content: space-between;
-    box-shadow: none; /* Removed shadow */
+    box-shadow: none; 
 }
 
 .select-group {
@@ -77,19 +80,19 @@
     margin-bottom: 10px;  
 }
 
-    /* Label styling for form controls */
+
     .select-group label {
     font-weight: 500;
-    color: #374151; /* Neutral dark gray */
+    color: #374151; 
     font-size: 1em;
 }
-    /* Wrapper for select elements to allow custom styling */
+    
     .select-wrapper {
         position: relative;
         width: 100%;
     }
 
-    /* Custom dropdown arrow for select elements */
+ 
     .select-wrapper::after {
         content: '';
         position: absolute;
@@ -103,8 +106,8 @@
         border-top: 6px solid #0891b2;
         pointer-events: none;
     }
- /* Base styles for select dropdowns */
- .select-control {
+
+    .select-control {
     padding: 10px 15px;
     font-size: 1em;
     border: 1px solid #d1d5db;
@@ -115,16 +118,16 @@
 }
 
 .select-control:hover {
-    border-color: #9ca3af; /* Lighter hover effect */
+    border-color: #9ca3af; 
 }
 
 .select-control:focus {
     outline: none;
-    border-color: #2563eb; /* Match action color */
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3); /* Subtle focus ring */
+    border-color: #2563eb; 
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3); 
 }
 
-/* Date Picker Input Styling */
+
 input[type="date"].select-control {
     padding: 10px 15px;
     font-size: 1em;
@@ -135,19 +138,19 @@ input[type="date"].select-control {
     transition: border-color 0.2s ease;
 }
 
-/* Date Picker Focus State */
+
 input[type="date"].select-control:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
 }
-/* Fetch Button Styling */
+
 .fetch-button {
     padding: 12px 20px;
     font-size: 1em;
     font-weight: 600;
     color: white;
-    background-color: #2563eb; /* Vibrant action blue */
+    background-color: #2563eb; 
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -155,15 +158,15 @@ input[type="date"].select-control:focus {
 }
 
 .fetch-button:hover {
-    background-color: #1d4ed8; /* Darker blue on hover */
+    background-color: #1d4ed8; 
     transform: translateY(-2px);
 }
 
 .fetch-button:active {
-    background-color: #1e40af; /* Slightly darker when clicked */
+    background-color: #1e40af; 
 }
 
-/* Responsive Adjustments */
+
 @media (max-width: 768px) {
     .controls {
         flex-direction: column;
@@ -176,15 +179,15 @@ input[type="date"].select-control:focus {
 
     
     .select-group {
-        margin-bottom: 5px;  /* Reduced margin for mobile */
+        margin-bottom: 5px;  
     }
     
     input[type="date"].select-control {
-        margin-bottom: 8px;  /* Adjusted for mobile spacing */
+        margin-bottom: 8px;  
     }
 }
 
-        /* Author count styling */
+ 
         .author-count {
             margin-bottom: 1px;  
             display: flex;
@@ -239,7 +242,7 @@ input[type="date"].select-control:focus {
             white-space: nowrap;
         }
 
-        /* Citation styling */
+   
         .citation {
             margin-bottom: 20px;
             background-color: white;
@@ -269,7 +272,7 @@ input[type="date"].select-control:focus {
             text-decoration: underline;
         }
 
-        /* Filter info section */
+
         #filterInfo {
             margin: 25px 0;
             padding: 20px;
@@ -281,7 +284,7 @@ input[type="date"].select-control:focus {
             font-size: 1.1em;
         }
 
-        /* Button styling */
+
         .fetch-button {
             padding: 12px 24px;
             font-size: 1.1em;
@@ -301,7 +304,7 @@ input[type="date"].select-control:focus {
             box-shadow: 0 4px 15px rgba(8, 145, 178, 0.3);
         }
 
-        /* States */
+
         .active-author {
             color: #0891b2;
             font-weight: bold;
@@ -312,7 +315,7 @@ input[type="date"].select-control:focus {
             border-left: 4px solid #0891b2;
         }
 
-        /* Loading state */
+ 
         .loading {
             text-align: center;
             padding: 30px;
@@ -321,7 +324,7 @@ input[type="date"].select-control:focus {
             font-size: 1.1em;
         }
 
-        /* Error messaging */
+   
         #error {
             color: #dc2626;
             margin: 15px 0;
@@ -333,7 +336,7 @@ input[type="date"].select-control:focus {
             font-weight: 500;
         }
 
-        /* Responsive adjustments */
+
         @media (max-width: 768px) {
     
             .author-name {
@@ -390,7 +393,7 @@ input[type="date"].select-control:focus {
             }
         }
     </style>
- <!-- Add React dependencies -->
+
  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
@@ -471,7 +474,7 @@ input[type="date"].select-control:focus {
 
 
     <script>
-        // Add touch event handlers for better mobile interaction
+        
         function initializeMobileHandlers() {
             var selects = document.querySelectorAll('.select-control');
             selects.forEach(select => {
