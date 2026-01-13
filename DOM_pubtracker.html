@@ -304,6 +304,26 @@ input[type="date"].select-control:focus {
             box-shadow: 0 4px 15px rgba(8, 145, 178, 0.3);
         }
 
+        .fetch-button.secondary-button {
+            background-color: #e2e8f0;
+            color: #1a2b3c;
+        }
+
+        .fetch-button.secondary-button:hover {
+            background-color: #cbd5e1;
+            box-shadow: 0 4px 15px rgba(148, 163, 184, 0.4);
+        }
+
+        .fetch-button.danger-button {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .fetch-button.danger-button:hover {
+            background-color: #fecaca;
+            box-shadow: 0 4px 15px rgba(248, 113, 113, 0.35);
+        }
+
 
         .active-author {
             color: #0891b2;
@@ -334,6 +354,16 @@ input[type="date"].select-control:focus {
             border-left: 4px solid #dc2626;
             display: none;
             font-weight: 500;
+        }
+
+        #cacheInfo {
+            margin: 15px 0;
+            padding: 12px 16px;
+            background-color: #f1f5f9;
+            border-radius: 8px;
+            color: #475569;
+            font-size: 0.95em;
+            display: none;
         }
 
 
@@ -443,10 +473,17 @@ input[type="date"].select-control:focus {
         <button class="fetch-button" onclick="fetchPublications()">
             Fetch Publications
         </button>
+        <button class="fetch-button secondary-button" onclick="fetchPublications({ bypassCache: true })">
+            Refresh (Skip Cache)
+        </button>
+        <button class="fetch-button danger-button" onclick="clearCache()">
+            Clear Cache
+        </button>
     </div>
 
     <div id="error"></div>
     <div id="loading" class="loading" style="display:none">Loading publications...</div>
+    <div id="cacheInfo"></div>
     
     <div id="filterInfo" style="display: none;">
         <span>Showing publications for: <strong id="currentAuthor"></strong></span>
@@ -957,6 +994,193 @@ respirology: {
             loadingDiv.innerHTML = `Loading publications... (${current}/${total} authors)`;
         }
 
+        const API_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+        const API_KEY = '17c51783b0b2bbf3357b62bda94f5eeb0509';
+
+        const CACHE_STORAGE_KEY = 'pubtracker-cache-v1';
+        const CACHE_VERSION = 1;
+        const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+        const CACHE_MAX_ENTRIES = 6;
+
+        function loadCache() {
+            try {
+                const raw = localStorage.getItem(CACHE_STORAGE_KEY);
+                if (!raw) {
+                    return { version: CACHE_VERSION, entries: {} };
+                }
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.version !== CACHE_VERSION || !parsed.entries) {
+                    return { version: CACHE_VERSION, entries: {} };
+                }
+                return parsed;
+            } catch (error) {
+                console.warn('Failed to load cache:', error);
+                return { version: CACHE_VERSION, entries: {} };
+            }
+        }
+
+        function saveCache(cache) {
+            try {
+                localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(cache));
+            } catch (error) {
+                console.warn('Failed to save cache:', error);
+            }
+        }
+
+        function pruneCacheEntries(cache) {
+            const entries = Object.entries(cache.entries || {});
+            if (entries.length <= CACHE_MAX_ENTRIES) {
+                return;
+            }
+            entries.sort(([, a], [, b]) => a.timestamp - b.timestamp);
+            const toRemove = entries.slice(0, entries.length - CACHE_MAX_ENTRIES);
+            toRemove.forEach(([key]) => {
+                delete cache.entries[key];
+            });
+        }
+
+        function getCacheEntry(cache, key) {
+            const entry = cache.entries[key];
+            if (!entry) {
+                return null;
+            }
+            const age = Date.now() - entry.timestamp;
+            if (age > CACHE_TTL_MS) {
+                delete cache.entries[key];
+                saveCache(cache);
+                return null;
+            }
+            return entry;
+        }
+
+        function setCacheEntry(cache, key, state) {
+            cache.entries[key] = {
+                timestamp: Date.now(),
+                state: state
+            };
+            pruneCacheEntries(cache);
+            saveCache(cache);
+        }
+
+        function clearCache() {
+            localStorage.removeItem(CACHE_STORAGE_KEY);
+            setCacheInfo('Cache cleared.');
+        }
+
+        function setCacheInfo(message) {
+            const cacheInfo = document.getElementById('cacheInfo');
+            if (!cacheInfo) {
+                return;
+            }
+            if (message) {
+                cacheInfo.textContent = message;
+                cacheInfo.style.display = 'block';
+            } else {
+                cacheInfo.textContent = '';
+                cacheInfo.style.display = 'none';
+            }
+        }
+
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+
+        function buildCacheKey(department, fromDate, toDate) {
+            return `${department}|${fromDate}|${toDate}`;
+        }
+
+        function serializeState(state) {
+            const publications = {};
+            state.publications.forEach((authors, pmid) => {
+                publications[pmid] = Array.from(authors);
+            });
+
+            return {
+                publications: publications,
+                authorCounts: state.authorCounts,
+                firstOrLastCounts: state.firstOrLastCounts,
+                citations: state.citations
+            };
+        }
+
+        function hydrateState(serialized) {
+            const publications = new Map();
+            Object.entries(serialized.publications || {}).forEach(([pmid, authors]) => {
+                publications.set(pmid, new Set(authors));
+            });
+
+            return {
+                publications: publications,
+                authorCounts: serialized.authorCounts || {},
+                firstAuthorCounts: {},
+                lastAuthorCounts: {},
+                firstOrLastCounts: serialized.firstOrLastCounts || {},
+                citations: serialized.citations || [],
+                paperAuthorMap: new Map()
+            };
+        }
+
+        function normalizeAffiliations(affiliations) {
+            const unique = new Set();
+            (affiliations || []).forEach(aff => {
+                const normalized = String(aff || '').trim();
+                if (normalized) {
+                    unique.add(normalized);
+                }
+            });
+            return Array.from(unique);
+        }
+
+        function buildSearchQuery(author, affiliations, fromDate, toDate) {
+            const nameQuery = `(${author}[Author] OR ${author}[Investigator] OR ${author}[Full Author Name])`;
+            const dateQuery = `(${fromDate}[dp] : ${toDate}[dp])`;
+            const normalizedAffiliations = normalizeAffiliations(affiliations);
+
+            if (normalizedAffiliations.length === 0) {
+                return `${nameQuery} AND ${dateQuery}`;
+            }
+
+            const affQuery = normalizedAffiliations
+                .map(aff => `${aff}[Affiliation]`)
+                .join(' OR ');
+            return `${nameQuery} AND (${affQuery}) AND ${dateQuery}`;
+        }
+
+        async function fetchJsonWithRetry(url, maxAttempts = 5) {
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+
+                    const shouldRetry = response.status === 429 || response.status >= 500;
+                    if (!shouldRetry || attempt === maxAttempts) {
+                        const text = await response.text();
+                        const error = new Error(`PubMed error ${response.status}: ${text.slice(0, 200)}`);
+                        error.noRetry = !shouldRetry;
+                        throw error;
+                    }
+
+                    const retryAfter = response.headers.get('Retry-After');
+                    const retryAfterSeconds = Number(retryAfter);
+                    const retryDelay = Number.isFinite(retryAfterSeconds)
+                        ? retryAfterSeconds * 1000
+                        : 500 * Math.pow(2, attempt - 1);
+                    await delay(retryDelay + Math.floor(Math.random() * 100));
+                } catch (error) {
+                    if (error && error.noRetry) {
+                        throw error;
+                    }
+                    if (attempt === maxAttempts) {
+                        throw error;
+                    }
+                    await delay(500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 100));
+                }
+            }
+            throw new Error('Failed to fetch PubMed data.');
+        }
+
         let currentState = {
             publications: new Map(),
             authorCounts: {},
@@ -967,10 +1191,23 @@ respirology: {
             paperAuthorMap: new Map()
         };
 
-        async function fetchPublications() {
+        async function fetchPublications(options = {}) {
             const department = document.getElementById('department').value;
             const fromDate = document.getElementById('fromDate').value.trim();
             const toDate = document.getElementById('toDate').value.trim();
+            const bypassCache = options.bypassCache === true;
+
+            if (!fromDate || !toDate) {
+                document.getElementById('error').textContent = 'Please select both a start and end date.';
+                document.getElementById('error').style.display = 'block';
+                return;
+            }
+
+            if (new Date(fromDate) > new Date(toDate)) {
+                document.getElementById('error').textContent = 'The start date must be before the end date.';
+                document.getElementById('error').style.display = 'block';
+                return;
+            }
 
             let authors;
             if (department === "all") {
@@ -984,9 +1221,27 @@ respirology: {
 
             clearFilter();
 
+            document.getElementById('error').style.display = 'none';
+
+            const authorDivisions = department === "all" ? buildAuthorDivisionMap() : null;
+            const cacheKey = buildCacheKey(department, fromDate, toDate);
+            const cache = loadCache();
+
+            if (!bypassCache) {
+                const cachedEntry = getCacheEntry(cache, cacheKey);
+                if (cachedEntry) {
+                    currentState = hydrateState(cachedEntry.state);
+                    updateUI(authorDivisions);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('results').style.display = 'block';
+                    setCacheInfo(`Loaded cached results from ${formatTimestamp(cachedEntry.timestamp)}.`);
+                    return;
+                }
+            }
+
+            setCacheInfo('');
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
-            document.getElementById('error').style.display = 'none';
 
             try {
                 currentState = {
@@ -1002,19 +1257,30 @@ respirology: {
                 const authorEntries = Object.entries(authors);
                 const totalAuthors = authorEntries.length;
                 let processedAuthors = 0;
+                const failedAuthors = [];
+                let failedCitationBatches = 0;
 
-                const CONCURRENCY_LIMIT = 5;
+                const CONCURRENCY_LIMIT = 4;
+                const REQUEST_DELAY_MS = 350;
 
                 await asyncPool(CONCURRENCY_LIMIT, authorEntries, async ([author, affiliations]) => {
                     try {
-                        const count = await searchAuthorPublications(author, affiliations, fromDate, toDate);
-                        currentState.authorCounts[author] = count;
-                        processedAuthors++;
-                        updateLoadingStatus(processedAuthors, totalAuthors);
-                        await delay(500);
+                        const ids = await searchAuthorPublications(author, affiliations, fromDate, toDate);
+                        currentState.authorCounts[author] = ids.length;
+                        ids.forEach(id => {
+                            if (!currentState.publications.has(id)) {
+                                currentState.publications.set(id, new Set());
+                            }
+                            currentState.publications.get(id).add(author);
+                        });
                     } catch (error) {
                         console.error(`Error processing ${author}:`, error);
                         currentState.authorCounts[author] = 0;
+                        failedAuthors.push(author);
+                    } finally {
+                        processedAuthors++;
+                        updateLoadingStatus(processedAuthors, totalAuthors);
+                        await delay(REQUEST_DELAY_MS);
                     }
                 });
 
@@ -1026,16 +1292,35 @@ respirology: {
                     const allCitations = [];
 
                     for (const batch of citationBatches) {
-                        const citations = await fetchCitations(batch);
-                        allCitations.push(...citations);
-                        await delay(500);
+                        try {
+                            const citations = await fetchCitations(batch);
+                            allCitations.push(...citations);
+                        } catch (error) {
+                            failedCitationBatches++;
+                            console.error('Error fetching citation batch:', error);
+                        }
+                        await delay(REQUEST_DELAY_MS);
                     }
 
                     currentState.citations = allCitations;
                 }
 
-                const authorDivisions = department === "all" ? buildAuthorDivisionMap() : null;
                 updateUI(authorDivisions);
+                if (failedAuthors.length === 0 && failedCitationBatches === 0) {
+                    setCacheEntry(cache, cacheKey, serializeState(currentState));
+                    setCacheInfo(`Results cached at ${formatTimestamp(Date.now())}.`);
+                } else {
+                    setCacheInfo('Results not cached because some PubMed requests failed.');
+                    const warningParts = [];
+                    if (failedAuthors.length > 0) {
+                        warningParts.push(`${failedAuthors.length} author searches failed after retries`);
+                    }
+                    if (failedCitationBatches > 0) {
+                        warningParts.push(`${failedCitationBatches} citation batches failed after retries`);
+                    }
+                    document.getElementById('error').textContent = `Warning: ${warningParts.join('; ')}. Check the console for details.`;
+                    document.getElementById('error').style.display = 'block';
+                }
 
             } catch (error) {
                 document.getElementById('error').textContent = `Error: ${error.message}`;
@@ -1064,7 +1349,8 @@ respirology: {
             const sortedAuthors = Object.entries(countsToUse)
                 .sort(([,a], [,b]) => b - a);
 
-            const maxCount = Math.max(...Object.values(countsToUse));
+            const countValues = Object.values(countsToUse);
+            const maxCount = countValues.length ? Math.max(...countValues) : 0;
 
             authorCountsDiv.innerHTML = sortedAuthors.map(([author, count]) => {
                 const divisionLabel = authorDivisions ? 
@@ -1077,7 +1363,7 @@ respirology: {
                             ${author}${divisionLabel}
                         </div>
                         <div class="bar-container">
-                            <div class="bar" style="width: ${(count / maxCount) * 100}%;">
+                            <div class="bar" style="width: ${maxCount ? (count / maxCount) * 100 : 0}%;">
                             </div>
                             <div class="author-metrics">
                                 ${count}
@@ -1114,29 +1400,42 @@ respirology: {
         }
 
         async function searchAuthorPublications(author, affiliations, fromDate, toDate) {
-            const nameQuery = `(${author}[Author] OR ${author}[Investigator] OR ${author}[Full Author Name])`;
-            const affQuery = affiliations.map(aff => `${aff}[Affiliation]`).join(' OR ');
-            const dateQuery = `(${fromDate}[dp] : ${toDate}[dp])`;
-            
-            const query = `${nameQuery} AND (${affQuery}) AND ${dateQuery}`;
-            
-            const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&term=${encodeURIComponent(query)}&retmode=json&retmax=999999`;
-            
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            const ids = data.esearchresult.idlist || [];
-            ids.forEach(id => {
-                if (!currentState.publications.has(id)) {
-                    currentState.publications.set(id, new Set());
+            const query = buildSearchQuery(author, affiliations, fromDate, toDate);
+            const ids = [];
+            const RETMAX = 500;
+            let retstart = 0;
+            let total = null;
+
+            while (true) {
+                const url = `${API_BASE}/esearch.fcgi?db=pubmed&api_key=${API_KEY}&term=${encodeURIComponent(query)}&retmode=json&retmax=${RETMAX}&retstart=${retstart}`;
+                const data = await fetchJsonWithRetry(url);
+
+                if (!data || !data.esearchresult) {
+                    throw new Error('Unexpected response from PubMed search.');
                 }
-                currentState.publications.get(id).add(author);
-            });
-            
-            return ids.length;
+
+                if (total === null) {
+                    total = parseInt(data.esearchresult.count || '0', 10);
+                }
+
+                const pageIds = data.esearchresult.idlist || [];
+                ids.push(...pageIds);
+                retstart += pageIds.length;
+
+                if (pageIds.length === 0 || retstart >= total) {
+                    break;
+                }
+
+                await delay(150);
+            }
+
+            return ids;
         }
 
         function isFirstOrLastAuthor(authorsList, authorFullName) {
+            if (!authorsList || authorsList.length === 0) {
+                return false;
+            }
             const authorLastName = authorFullName.trim().split(' ').slice(-1)[0].toLowerCase();
             const firstAuthorLastName = authorsList[0].trim().split(' ')[0].toLowerCase();
             const lastAuthorLastName = authorsList[authorsList.length -1].trim().split(' ')[0].toLowerCase();
@@ -1147,45 +1446,39 @@ respirology: {
         async function fetchCitations(pmids) {
             if (pmids.length === 0) return [];
             
-            const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&api_key=17c51783b0b2bbf3357b62bda94f5eeb0509&id=${pmids.join(',')}&retmode=json`;
+            const url = `${API_BASE}/esummary.fcgi?db=pubmed&api_key=${API_KEY}&id=${pmids.join(',')}&retmode=json`;
+
+            const data = await fetchJsonWithRetry(url);
             
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                return Object.values(data.result || {})
-                    .filter(item => item && item.uid)
-                    .map(item => {
-                        const authors = (item.authors || []).map(author => author.name || '').filter(name => name);
-                        const foundBySet = currentState.publications.get(item.uid) || new Set();
-                        const foundBy = Array.from(foundBySet);
+            return Object.values(data.result || {})
+                .filter(item => item && item.uid)
+                .map(item => {
+                    const authors = (item.authors || []).map(author => author.name || '').filter(name => name);
+                    const foundBySet = currentState.publications.get(item.uid) || new Set();
+                    const foundBy = Array.from(foundBySet);
 
-                        const foundByFirstLast = [];
-                        foundBy.forEach(author => {
-                            if (isFirstOrLastAuthor(authors, author)) {
-                                foundByFirstLast.push(author);
-                                currentState.firstOrLastCounts[author] = (currentState.firstOrLastCounts[author] || 0) + 1;
-                            }
-                        });
-
-                        return {
-                            pmid: item.uid,
-                            authors: authors,
-                            title: item.title || 'No title',
-                            journal: item.source || 'No journal',
-                            volume: item.volume || '',
-                            issue: item.issue || '',
-                            pages: item.pages || '',
-                            year: item.pubdate.split(' ')[0] || '',
-                            doi: item.elocationid || '',
-                            foundBy: foundBy,
-                            foundByFirstLast: foundByFirstLast
-                        };
+                    const foundByFirstLast = [];
+                    foundBy.forEach(author => {
+                        if (isFirstOrLastAuthor(authors, author)) {
+                            foundByFirstLast.push(author);
+                            currentState.firstOrLastCounts[author] = (currentState.firstOrLastCounts[author] || 0) + 1;
+                        }
                     });
-            } catch (error) {
-                console.error('Error fetching citations:', error);
-                return [];
-            }
+
+                    return {
+                        pmid: item.uid,
+                        authors: authors,
+                        title: item.title || 'No title',
+                        journal: item.source || 'No journal',
+                        volume: item.volume || '',
+                        issue: item.issue || '',
+                        pages: item.pages || '',
+                        year: item.pubdate.split(' ')[0] || '',
+                        doi: item.elocationid || '',
+                        foundBy: foundBy,
+                        foundByFirstLast: foundByFirstLast
+                    };
+                });
         }
 
         function filterByAuthor(element, authorName, count) {
