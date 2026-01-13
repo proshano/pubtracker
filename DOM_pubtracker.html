@@ -304,26 +304,6 @@ input[type="date"].select-control:focus {
             box-shadow: 0 4px 15px rgba(8, 145, 178, 0.3);
         }
 
-        .fetch-button.secondary-button {
-            background-color: #e2e8f0;
-            color: #1a2b3c;
-        }
-
-        .fetch-button.secondary-button:hover {
-            background-color: #cbd5e1;
-            box-shadow: 0 4px 15px rgba(148, 163, 184, 0.4);
-        }
-
-        .fetch-button.danger-button {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-
-        .fetch-button.danger-button:hover {
-            background-color: #fecaca;
-            box-shadow: 0 4px 15px rgba(248, 113, 113, 0.35);
-        }
-
 
         .active-author {
             color: #0891b2;
@@ -471,13 +451,7 @@ input[type="date"].select-control:focus {
         </div>
         
         <button class="fetch-button" onclick="fetchPublications()">
-            Fetch Publications
-        </button>
-        <button class="fetch-button secondary-button" onclick="fetchPublications({ bypassCache: true })">
-            Refresh (Skip Cache)
-        </button>
-        <button class="fetch-button danger-button" onclick="clearCache()">
-            Clear Cache
+            Load Publications
         </button>
     </div>
 
@@ -1070,7 +1044,7 @@ respirology: {
 
         function clearCache() {
             localStorage.removeItem(CACHE_STORAGE_KEY);
-            setCacheInfo('Cache cleared.');
+            setCacheInfo('Saved results cleared.');
         }
 
         function setCacheInfo(message) {
@@ -1095,6 +1069,15 @@ respirology: {
             return `${department}|${fromDate}|${toDate}`;
         }
 
+        function getSelectedDivisionLabel() {
+            const departmentSelect = document.getElementById('department');
+            if (!departmentSelect) {
+                return 'this division';
+            }
+            const selectedOption = departmentSelect.options[departmentSelect.selectedIndex];
+            return selectedOption ? selectedOption.textContent : 'this division';
+        }
+
         function serializeState(state) {
             const publications = {};
             state.publications.forEach((authors, pmid) => {
@@ -1106,6 +1089,26 @@ respirology: {
                 authorCounts: state.authorCounts,
                 firstOrLastCounts: state.firstOrLastCounts,
                 citations: state.citations
+            };
+        }
+
+        let inMemoryAllCache = null;
+        let inMemoryAllKey = null;
+        let inMemoryAllTimestamp = null;
+
+        function rememberAllResults(state, cacheKey) {
+            inMemoryAllCache = serializeState(state);
+            inMemoryAllKey = cacheKey;
+            inMemoryAllTimestamp = Date.now();
+        }
+
+        function getRememberedAllResults(cacheKey) {
+            if (!inMemoryAllCache || inMemoryAllKey !== cacheKey) {
+                return null;
+            }
+            return {
+                state: hydrateState(inMemoryAllCache),
+                timestamp: inMemoryAllTimestamp
             };
         }
 
@@ -1130,6 +1133,61 @@ respirology: {
 
             const searchSaved = setCacheEntry(cache, cacheKey, serializeSearchState(state), 'search');
             return { mode: searchSaved ? 'search' : 'none', saved: searchSaved };
+        }
+
+        function deriveDivisionState(baseState, divisionKey) {
+            const division = departmentAuthors[divisionKey] || {};
+            const divisionAuthors = new Set(Object.keys(division));
+
+            const filteredAuthorCounts = {};
+            Object.entries(baseState.authorCounts || {}).forEach(([author, count]) => {
+                if (divisionAuthors.has(author)) {
+                    filteredAuthorCounts[author] = count;
+                }
+            });
+
+            const filteredFirstOrLastCounts = {};
+            Object.entries(baseState.firstOrLastCounts || {}).forEach(([author, count]) => {
+                if (divisionAuthors.has(author)) {
+                    filteredFirstOrLastCounts[author] = count;
+                }
+            });
+
+            const filteredPublications = new Map();
+            baseState.publications.forEach((authors, pmid) => {
+                const relevantAuthors = Array.from(authors).filter(author => divisionAuthors.has(author));
+                if (relevantAuthors.length > 0) {
+                    filteredPublications.set(pmid, new Set(relevantAuthors));
+                }
+            });
+
+            let filteredCitations = [];
+            if (baseState.citations && baseState.citations.length) {
+                filteredCitations = baseState.citations
+                    .map(citation => {
+                        const foundBy = (citation.foundBy || []).filter(author => divisionAuthors.has(author));
+                        if (foundBy.length === 0) {
+                            return null;
+                        }
+                        const foundByFirstLast = (citation.foundByFirstLast || []).filter(author => divisionAuthors.has(author));
+                        return {
+                            ...citation,
+                            foundBy: foundBy,
+                            foundByFirstLast: foundByFirstLast
+                        };
+                    })
+                    .filter(Boolean);
+            }
+
+            return {
+                publications: filteredPublications,
+                authorCounts: filteredAuthorCounts,
+                firstAuthorCounts: {},
+                lastAuthorCounts: {},
+                firstOrLastCounts: filteredFirstOrLastCounts,
+                citations: filteredCitations,
+                paperAuthorMap: new Map()
+            };
         }
 
         function hydrateState(serialized) {
@@ -1293,12 +1351,15 @@ respirology: {
                     updateUI(authorDivisions);
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('results').style.display = 'block';
-                    setCacheInfo(`Loaded cached results from ${formatTimestamp(cachedEntry.timestamp)}.`);
+                    setCacheInfo(`Using saved results from ${formatTimestamp(cachedEntry.timestamp)}.`);
+                    if (department === 'all') {
+                        rememberAllResults(currentState, cacheKey);
+                    }
                     return;
                 }
 
                 const cacheLoadedAt = formatTimestamp(cachedEntry.timestamp);
-                setCacheInfo(`Loaded cached search results from ${cacheLoadedAt}. Fetching citation details...`);
+                setCacheInfo(`Using saved results from ${cacheLoadedAt}. Updating citation details...`);
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('results').style.display = 'none';
 
@@ -1316,15 +1377,82 @@ respirology: {
                 if (failedCitationBatches === 0) {
                     const cacheOutcome = cacheResults(cache, cacheKey, currentState);
                     if (cacheOutcome.saved && cacheOutcome.mode === 'full') {
-                        setCacheInfo(`Loaded cached search results from ${cacheLoadedAt}. Citation details refreshed and cached.`);
+                        setCacheInfo(`Using saved results from ${cacheLoadedAt}. Citation details updated.`);
                     } else if (cacheOutcome.saved && cacheOutcome.mode === 'search') {
-                        setCacheInfo(`Loaded cached search results from ${cacheLoadedAt}. Citation details refreshed; saved lightweight cache.`);
+                        setCacheInfo(`Using saved results from ${cacheLoadedAt}. Citation details updated.`);
                     } else {
-                        setCacheInfo(`Loaded cached search results from ${cacheLoadedAt}. Citation details refreshed; cache unavailable.`);
+                        setCacheInfo(`Using saved results from ${cacheLoadedAt}. Citation details updated.`);
+                    }
+                    if (department === 'all') {
+                        rememberAllResults(currentState, cacheKey);
                     }
                 } else {
-                    setCacheInfo('Results not cached because some PubMed requests failed.');
-                    document.getElementById('error').textContent = `Warning: ${failedCitationBatches} citation batches failed after retries. Check the console for details.`;
+                    setCacheInfo('Some results could not be updated due to PubMed errors.');
+                    document.getElementById('error').textContent = `Warning: ${failedCitationBatches} citation batches failed after retries.`;
+                    document.getElementById('error').style.display = 'block';
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+                return;
+            }
+
+            const allCacheKey = buildCacheKey('all', fromDate, toDate);
+            const cachedAllEntry = (bypassCache || department === 'all')
+                ? null
+                : getCacheEntry(cache, allCacheKey);
+            const rememberedAllEntry = (bypassCache || department === 'all')
+                ? null
+                : getRememberedAllResults(allCacheKey);
+
+            if (cachedAllEntry || rememberedAllEntry) {
+                const baseState = cachedAllEntry
+                    ? hydrateState(cachedAllEntry.state)
+                    : rememberedAllEntry.state;
+                const derivedState = deriveDivisionState(baseState, department);
+                currentState = derivedState;
+
+                const divisionLabel = getSelectedDivisionLabel();
+                const cacheLoadedAt = cachedAllEntry
+                    ? formatTimestamp(cachedAllEntry.timestamp)
+                    : 'this session';
+                const isFullCache = cachedAllEntry
+                    ? cachedAllEntry.mode === 'full' && baseState.citations.length > 0
+                    : baseState.citations.length > 0;
+
+                if (isFullCache) {
+                    updateUI(null);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('results').style.display = 'block';
+                    setCacheInfo(`Using saved results from ${cacheLoadedAt}, filtered to ${divisionLabel}.`);
+                    return;
+                }
+
+                setCacheInfo(`Using saved results from ${cacheLoadedAt}, filtered to ${divisionLabel}. Updating citation details...`);
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('results').style.display = 'none';
+
+                currentState.firstAuthorCounts = {};
+                currentState.lastAuthorCounts = {};
+                currentState.firstOrLastCounts = {};
+                currentState.citations = [];
+                currentState.paperAuthorMap = new Map();
+
+                const uniqueIds = Array.from(currentState.publications.keys());
+                const failedCitationBatches = await fetchCitationDetails(uniqueIds, REQUEST_DELAY_MS);
+
+                updateUI(null);
+
+                if (failedCitationBatches === 0) {
+                    const cacheOutcome = cacheResults(cache, cacheKey, currentState);
+                    if (cacheOutcome.saved) {
+                        setCacheInfo(`Using saved results from ${cacheLoadedAt}, filtered to ${divisionLabel}. Citation details updated.`);
+                    } else {
+                        setCacheInfo(`Using saved results from ${cacheLoadedAt}, filtered to ${divisionLabel}. Citation details updated.`);
+                    }
+                } else {
+                    setCacheInfo('Some results could not be updated due to PubMed errors.');
+                    document.getElementById('error').textContent = `Warning: ${failedCitationBatches} citation batches failed after retries.`;
                     document.getElementById('error').style.display = 'block';
                 }
 
@@ -1334,9 +1462,9 @@ respirology: {
             }
 
             if (bypassCache) {
-                setCacheInfo('Cache skipped. Running a fresh search.');
+                setCacheInfo('Updating results from PubMed...');
             } else {
-                setCacheInfo('No cached results for this query. Running a fresh search.');
+                setCacheInfo('No saved results for these dates. Searching PubMed...');
             }
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').style.display = 'none';
@@ -1387,14 +1515,17 @@ respirology: {
                 if (failedAuthors.length === 0 && failedCitationBatches === 0) {
                     const cacheOutcome = cacheResults(cache, cacheKey, currentState);
                     if (cacheOutcome.saved && cacheOutcome.mode === 'full') {
-                        setCacheInfo(`Results cached at ${formatTimestamp(Date.now())}.`);
+                        setCacheInfo('Saved results for faster reuse.');
                     } else if (cacheOutcome.saved && cacheOutcome.mode === 'search') {
-                        setCacheInfo('Saved a lightweight cache (citation details will refetch).');
+                        setCacheInfo('Saved results for faster reuse.');
                     } else {
-                        setCacheInfo('Cache unavailable in this browser session.');
+                        setCacheInfo('Results loaded. This browser could not save them.');
+                    }
+                    if (department === 'all') {
+                        rememberAllResults(currentState, cacheKey);
                     }
                 } else {
-                    setCacheInfo('Results not cached because some PubMed requests failed.');
+                    setCacheInfo('Some results could not be updated due to PubMed errors.');
                     const warningParts = [];
                     if (failedAuthors.length > 0) {
                         warningParts.push(`${failedAuthors.length} author searches failed after retries`);
@@ -1402,7 +1533,7 @@ respirology: {
                     if (failedCitationBatches > 0) {
                         warningParts.push(`${failedCitationBatches} citation batches failed after retries`);
                     }
-                    document.getElementById('error').textContent = `Warning: ${warningParts.join('; ')}. Check the console for details.`;
+                    document.getElementById('error').textContent = `Warning: ${warningParts.join('; ')}.`;
                     document.getElementById('error').style.display = 'block';
                 }
 
